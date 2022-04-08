@@ -1,4 +1,4 @@
-# MemPool
+# :floppy_disk: MemPool
 A *very* simple (only ~150 lines) C++ thread safe heterogenous header-only memory pool class with smart pointer support. Use this if you want to eliminate frequent allocations for **small, short-lived** objects.
 
 ## Features
@@ -43,3 +43,11 @@ int main(void) {
 
 ## Contribution
 I'm still a C++ baby so if you have some ideas for improvement, please feel free to make an issue or a PR!
+
+### Todo
+- [ ] Support for non-smart pointer alloc
+- [ ] `std::unique_ptr` support
+- [ ] Benchmarks (with both insert after and insert before)
+- [ ] More complex example
+- [ ] Alignment?
+- [ ] Explanation of how it works
