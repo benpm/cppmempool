@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "*.shader": "glsl",
+        "memory_resource": "cpp"
+    }
+}
