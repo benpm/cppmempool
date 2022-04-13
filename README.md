@@ -11,6 +11,7 @@ A *very* simple (only ~150 lines) C++ thread safe heterogenous header-only memor
 With the implementation being this simple, there are definitely some **significant tradeoffs**:
 - Objects allocated cannot be larger than `Chunk::size` (default is 8192 bytes). You *should* get a compiler error if you try this
 - Unused space in allocated chunks is *not reused* until *the entire chunk is empty!* So if some of your objects have long lifetimes, expect your memory usage to just continue growing as you make more allocations in the pool.
+- Blocks are currently not deallocated when empty, but they are re-used
 
 ## Usage
 
@@ -18,7 +19,7 @@ With the implementation being this simple, there are definitely some **significa
 #include <iostream>
 #include <mempool.hpp>
 
-using benpm;
+using namespace benpm;
 
 struct Foo {
     std::string name;
@@ -39,6 +40,33 @@ int main(void) {
     std::cout << barA->val << std::endl;
     ///TODO: put example for normal allocation and free
 }
+```
+
+## How it Works
+todo
+
+## Benchmark
+it sucks right now except for sequential access
+```
+N = 10000000
+
+WITH MEMORY POOL
+initial insert: 498ms
+random removal: 1684ms
+second insert: 1309ms
+random access: 1231ms
+sequential access: 31ms
+  ... sum is 55181273935681
+destruction: 1217ms
+
+WITHOUT MEMORY POOL
+initial insert: 222ms
+random removal: 1117ms
+second insert: 576ms
+random access: 1220ms
+sequential access: 63ms
+  ... sum is 55182447325738
+destruction: 1350ms
 ```
 
 ## Contribution

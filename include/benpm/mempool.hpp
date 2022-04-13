@@ -7,6 +7,9 @@
 #include <memory>
 #include <mutex>
 
+// #define MEMPOOL_THREADSAFE
+#define MEMPOOL_EMPTY_INSERT_AFTER
+
 namespace benpm {
 class MemPool {
  private:  // ------------------------------------------------------------
@@ -44,60 +47,54 @@ class MemPool {
   // ----------------------------------------------------------------------
 
   Chunk* curChunk = nullptr;    // Non-full chunk which is currently being used
-  Chunk* firstChunk = nullptr;  // First chunk in first block
-  Chunk* lastChunk = nullptr;   // Last chunk in last block
+  std::vector<Chunk*> blocks;   // All allocated blocks
   std::mutex mutex;
 
   // Bound, called for a particular chunk and object when shared_ptr ref count
   // hits 0
   template <class T>
   void destructHandler(Chunk* chunk, T* obj) {
-    std::lock_guard<std::mutex> lock(this->mutex);
+    #ifdef MEMPOOL_THREADSAFE
+      std::lock_guard<std::mutex> lock(this->mutex);
+    #endif
     chunk->used -= sizeof(T);
     obj->~T();
     if (chunk->empty()) {
-      if constexpr (MemPool::emptyInsertAfter) {
+      #ifdef MEMPOOL_EMPTY_INSERT_AFTER
         // Insert self after current chunk in linked list
         chunk->next = this->curChunk->next;
         this->curChunk->next = chunk;
-      } else {
+      #else
         // Insert self before current chunk in linked list, then make myself
         // current
         chunk->next = this->curChunk;
         this->curChunk = chunk;
-      }
+      #endif
     }
   }
 
   // Allocates a new block of chunks
-  Chunk* allocBlock() {
+  void allocBlock() {
     Chunk* block = reinterpret_cast<Chunk*>(malloc(blockSize));
     Chunk* c = block;
     for (size_t i = 0; i < chunksPerBlock - 1; c = c->next, i++) {
       c->init(reinterpret_cast<Chunk*>(reinterpret_cast<char*>(c) + Chunk::size));
     }
-    this->lastChunk = c;
-    this->lastChunk->init(nullptr);
+    c->init(nullptr);
     if (this->curChunk != nullptr) {
       this->curChunk->next = block;
     }
     this->curChunk = block;
-    return block;
+    blocks.push_back(block);
   }
 
  public:  // ------------------------------------------------------------
-  MemPool() { firstChunk = allocBlock(); }
+  MemPool() { allocBlock(); }
 
   ~MemPool() {
-    Chunk* block = firstChunk;
-    do {
-      Chunk* next = reinterpret_cast<Chunk*>((char*)block + MemPool::blockSize - Chunk::size)->next;
+    for (Chunk* block : blocks) {
       free(block);
-      if (&block[chunksPerBlock - 1] == this->lastChunk) {
-        break;
-      }
-      block = next;
-    } while (block != nullptr);
+    }
     this->curChunk = nullptr;
   }
 
@@ -113,7 +110,9 @@ class MemPool {
    */
   template <class T, class... V>
   std::shared_ptr<T> emplace(V&&... v) {
-    std::lock_guard<std::mutex> lock(mutex);
+    #ifdef MEMPOOL_THREADSAFE
+      std::lock_guard<std::mutex> lock(mutex);
+    #endif
     if (this->curChunk->head - (char*)this->curChunk + sizeof(T) > Chunk::size) {
       if (this->curChunk->next == nullptr) {
         allocBlock();
