@@ -35,7 +35,7 @@ int main(int argc, char const *argv[]) {
         {// Random removal
             t = clock.now();
             for (size_t i = 0; i < N/2; i++) {
-                list[dis(gen) % list.size()] = nullptr;
+                list[i] = nullptr;
             }
             std::cout << "random removal: " << std::chrono::duration_cast<std::chrono::milliseconds>(clock.now() - t).count() << "ms" << std::endl;
         }
@@ -86,7 +86,7 @@ int main(int argc, char const *argv[]) {
         {// Random removal
             t = clock.now();
             for (size_t i = 0; i < N/2; i++) {
-                list[dis(gen) % list.size()] = nullptr;
+                list[i] = nullptr;
             }
             std::cout << "random removal: " << std::chrono::duration_cast<std::chrono::milliseconds>(clock.now() - t).count() << "ms" << std::endl;
         }

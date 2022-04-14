@@ -46,27 +46,28 @@ int main(void) {
 todo
 
 ## Benchmark
-it sucks right now except for sequential access
+Performance gains over normal allocation in allocating new objects in old blocks, as well as sequential memory access. This project is WIP so these numbers should hopefully look better soon?
+
 ```
 N = 10000000
 
 WITH MEMORY POOL
-initial insert: 498ms
-random removal: 1684ms
-second insert: 1309ms
-random access: 1231ms
-sequential access: 31ms
-  ... sum is 55181273935681
-destruction: 1217ms
+initial insert: 524ms
+random removal: 73ms
+second insert: 271ms
+random access: 1178ms
+sequential access: 30ms
+  ... sum is 59772134412938
+destruction: 291ms
 
 WITHOUT MEMORY POOL
-initial insert: 222ms
-random removal: 1117ms
-second insert: 576ms
-random access: 1220ms
-sequential access: 63ms
-  ... sum is 55182447325738
-destruction: 1350ms
+initial insert: 343ms
+random removal: 56ms
+second insert: 130ms
+random access: 1269ms
+sequential access: 62ms
+  ... sum is 59788780760286
+destruction: 244ms
 ```
 
 ## Contribution
