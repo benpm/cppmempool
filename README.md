@@ -12,6 +12,7 @@ With the implementation being this simple, there are definitely some **significa
 - Objects allocated cannot be larger than `Chunk::size` (default is 8192 bytes). You *should* get a compiler error if you try this
 - Unused space in allocated chunks is *not reused* until *the entire chunk is empty!* So if some of your objects have long lifetimes, expect your memory usage to just continue growing as you make more allocations in the pool.
 - Blocks are currently not deallocated when empty, but they are re-used
+- Requires C++11
 
 ## Usage
 
@@ -47,43 +48,22 @@ Check out benchmark.cpp for more
 todo
 
 ## Benchmark
-Performance gains over normal allocation in allocating new objects in old blocks, as well as sequential memory access. This project is WIP so these numbers should hopefully look better soon?
+(This is a work in progress)
 
-```
-N = 10000000
-
-RAW POINTER WITH MEMORY POOL
-initial insert:    155ms
-half removal:       58ms
-second insert:      78ms
-random access:     899ms
-sequential access:  19ms
-destruction:       111ms
-
-RAW POINTER
-initial insert:    199ms
-half removal:       34ms
-second insert:     100ms
-random access:     847ms
-sequential access:  28ms
-destruction:       103ms
-
-SHARED_PTR WITH MEMORY POOL
-initial insert:    346ms
-half removal:       71ms
-second insert:     113ms
-random access:     950ms
-sequential access:  21ms
-destruction:       166ms
-
-SHARED_PTR WITHOUT MEMORY POOL
-initial insert:    165ms
-half removal:       56ms
-second insert:      86ms
-random access:     1051ms
-sequential access:  35ms
-destruction:       116ms
-```
+| `N = 10000000`                 | pool  | no pool |
+|--------------------------------|-------|---------|
+| (raw) initial insert           | 155ms | 199ms   |
+| (raw) half removal             | 58ms  | 34ms    |
+| (raw) second insert            | 78ms  | 100ms   |
+| (raw) random access            | 899ms | 847ms   |
+| (raw) sequential access        | 19ms  | 28ms    |
+| (raw) destruction              | 111ms | 103ms   |
+| (shared_ptr) initial insert    | 346ms | 165ms   |
+| (shared_ptr) half removal      | 71ms  | 56ms    |
+| (shared_ptr) second insert     | 113ms | 86ms    |
+| (shared_ptr) random access     | 950ms | 1051ms  |
+| (shared_ptr) sequential access | 21ms  | 35ms    |
+| (shared_ptr) destruction       | 166ms | 116ms   |
 
 ## Contribution
 I'm still a C++ baby so if you have some ideas for improvement, please feel free to make an issue or a PR!
