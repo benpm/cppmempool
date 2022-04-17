@@ -1,21 +1,28 @@
 #pragma once
 
-#include <stdlib.h>
+#include <cassert>
+#include <cstdlib>
 
+#include <unordered_map>
 #include <functional>
 #include <list>
 #include <memory>
 #include <mutex>
 
 // #define MEMPOOL_THREADSAFE
-#define MEMPOOL_EMPTY_INSERT_AFTER
+// #define MEMPOOL_EMPTY_INSERT_AFTER
 
 namespace benpm {
 class MemPool {
  private:  // ------------------------------------------------------------
-  struct Chunk {
-    static constexpr size_t size = 4096 * 2;
 
+  // Configuration --------------------------------------------------------
+  static constexpr size_t chunkSize = 8192;
+  static constexpr size_t chunksPerBlock = 32;
+  static constexpr size_t blockSize = chunkSize * chunksPerBlock;
+  // ----------------------------------------------------------------------
+
+  struct Chunk {
     char* head;   // Next free byte in chunk
     Chunk* next;  // Next free chunk
     size_t used;  // Occupied bytes in chunk
@@ -29,37 +36,40 @@ class MemPool {
     // Returns if chunk is empty and can be used for more allocations
     bool empty() const { return this->used == sizeof(Chunk); }
     // Emplace object of type T in chunk
+    template <class T, class... V> 
+    std::shared_ptr<T> makeShared(MemPool* pool, V&&... v) {
+      return std::shared_ptr<T>(
+        this->make<T>(pool, std::forward<V>(v)...),
+        [pool,this](T* o){ pool->destructHandler<T>(this, o); });
+    }
+
     template <class T, class... V>
-    std::shared_ptr<T> emplace(MemPool* pool, V&&... v) {
-      static_assert(sizeof(T) <= Chunk::size - sizeof(Chunk), "Object is too large for chunk");
+    T* make(MemPool* pool, V&&... v) {
+      static_assert(sizeof(T) <= chunkSize - sizeof(Chunk), "Object is too large for chunk");
       T* obj = new (head) T(std::forward<V>(v)...);
       this->head += sizeof(T);
       this->used += sizeof(T);
-      return std::shared_ptr<T>(
-          obj, std::bind(&MemPool::destructHandler<T>, pool, this, obj));
+      return obj;
     }
   };
 
-  // Configuration --------------------------------------------------------
-  static constexpr size_t chunksPerBlock = 32;
-  static constexpr size_t blockSize = Chunk::size * chunksPerBlock;
-  static constexpr bool emptyInsertAfter = true;
-  // ----------------------------------------------------------------------
-
   Chunk* curChunk = nullptr;    // Non-full chunk which is currently being used
-  std::vector<Chunk*> blocks;   // All allocated blocks
+  std::unordered_map<size_t, Chunk*> blocks;
   std::mutex mutex;
 
   // Bound, called for a particular chunk and object when shared_ptr ref count
   // hits 0
   template <class T>
   void destructHandler(Chunk* chunk, T* obj) {
+    assert(this->contains(obj));
+    assert(this->inChunk(obj, chunk));
     #ifdef MEMPOOL_THREADSAFE
       std::lock_guard<std::mutex> lock(this->mutex);
     #endif
     chunk->used -= sizeof(T);
     obj->~T();
     if (chunk->empty()) {
+      chunk->head = ((char*)chunk) + sizeof(Chunk);
       #ifdef MEMPOOL_EMPTY_INSERT_AFTER
         // Insert self after current chunk in linked list
         chunk->next = this->curChunk->next;
@@ -75,25 +85,42 @@ class MemPool {
 
   // Allocates a new block of chunks
   void allocBlock() {
-    Chunk* block = reinterpret_cast<Chunk*>(malloc(blockSize));
+    Chunk* block = static_cast<Chunk*>(aligned_alloc(blockSize, blockSize));
+    assert((size_t)(char*)block % blockSize == 0);
     Chunk* c = block;
     for (size_t i = 0; i < chunksPerBlock - 1; c = c->next, i++) {
-      c->init(reinterpret_cast<Chunk*>(reinterpret_cast<char*>(c) + Chunk::size));
+      c->init((Chunk*)((char*)(c) + chunkSize));
     }
     c->init(nullptr);
     if (this->curChunk != nullptr) {
       this->curChunk->next = block;
     }
     this->curChunk = block;
-    blocks.push_back(block);
+    blocks.emplace((size_t)(char*)block / blockSize, block);
+  }
+
+  // Returns the block index of a memory address
+  size_t getBlockIdx(void* ptr) const {
+    return (size_t)(char*)ptr / blockSize;
+  }
+
+  // Returns true if given memory address resides in this pool
+  bool contains(void* ptr) const {
+    return this->blocks.count(this->getBlockIdx(ptr));
+  }
+
+  // Returns true if given memory address resides in given chunk
+  bool inChunk(void* ptr, Chunk* chunk) const {
+    return (char*)ptr >= (char*)chunk &&
+           (char*)ptr < (char*)chunk + chunkSize;
   }
 
  public:  // ------------------------------------------------------------
   MemPool() { allocBlock(); }
 
   ~MemPool() {
-    for (Chunk* block : blocks) {
-      free(block);
+    for (auto it : blocks) {
+      free(it.second);
     }
     this->curChunk = nullptr;
   }
@@ -109,18 +136,60 @@ class MemPool {
    * @return std::shared_ptr<T> The allocated object
    */
   template <class T, class... V>
-  std::shared_ptr<T> emplace(V&&... v) {
+  std::shared_ptr<T> makeShared(V&&... v) {
     #ifdef MEMPOOL_THREADSAFE
       std::lock_guard<std::mutex> lock(mutex);
     #endif
-    if (this->curChunk->head - (char*)this->curChunk + sizeof(T) > Chunk::size) {
+    if (this->curChunk->head - (char*)this->curChunk + sizeof(T) >= chunkSize) {
       if (this->curChunk->next == nullptr) {
         allocBlock();
       } else {
         this->curChunk = this->curChunk->next;
       }
     }
-    return this->curChunk->emplace<T>(this, std::forward<V>(v)...);
+    return this->curChunk->makeShared<T>(this, std::forward<V>(v)...);
+  }
+
+  /**
+   * @brief Allocates object in memory pool, returns pointer to object
+   * 
+   * @note This function is thread-safe.
+   * 
+   * @tparam T The object type to allocate
+   * @tparam V The argument types to pass to the constructor of T
+   * @param v The arguments to pass to the constructor of T
+   * @return T* The allocated object
+   */
+  template <class T, class... V>
+  T* make(V&&... v) {
+    #ifdef MEMPOOL_THREADSAFE
+      std::lock_guard<std::mutex> lock(mutex);
+    #endif
+    if (this->curChunk->head - (char*)this->curChunk + sizeof(T) >= chunkSize) {
+      if (this->curChunk->next == nullptr) {
+        this->allocBlock();
+      } else {
+        this->curChunk = this->curChunk->next;
+      }
+    }
+    return this->curChunk->make<T>(this, std::forward<V>(v)...);
+  }
+
+  /**
+   * @brief Frees object from memory pool
+   * 
+   * @tparam T Object type
+   * @param obj Pointer to object that was alloc'd in this pool
+   */
+  template <class T>
+  void free(T* obj) {
+    assert(this->contains(obj));
+    const size_t blockIdx = this->getBlockIdx((void*)obj);
+    assert(blocks.count(blockIdx));
+    Chunk* block = blocks.at(blockIdx);
+    const size_t chunkIdx = ((size_t)((char*)obj - (char*)block) / chunkSize);
+    Chunk* chunk = (Chunk*)(((char*)block) + chunkIdx * chunkSize);
+    this->destructHandler<T>(chunk, obj);
   }
 };
 }  // namespace benpm

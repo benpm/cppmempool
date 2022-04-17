@@ -41,6 +41,7 @@ int main(void) {
     ///TODO: put example for normal allocation and free
 }
 ```
+Check out benchmark.cpp for more
 
 ## How it Works
 todo
@@ -51,32 +52,46 @@ Performance gains over normal allocation in allocating new objects in old blocks
 ```
 N = 10000000
 
-WITH MEMORY POOL
-initial insert: 524ms
-random removal: 73ms
-second insert: 271ms
-random access: 1178ms
-sequential access: 30ms
-  ... sum is 59772134412938
-destruction: 291ms
+RAW POINTER WITH MEMORY POOL
+initial insert:    155ms
+half removal:       58ms
+second insert:      78ms
+random access:     899ms
+sequential access:  19ms
+destruction:       111ms
 
-WITHOUT MEMORY POOL
-initial insert: 343ms
-random removal: 56ms
-second insert: 130ms
-random access: 1269ms
-sequential access: 62ms
-  ... sum is 59788780760286
-destruction: 244ms
+RAW POINTER
+initial insert:    199ms
+half removal:       34ms
+second insert:     100ms
+random access:     847ms
+sequential access:  28ms
+destruction:       103ms
+
+SHARED_PTR WITH MEMORY POOL
+initial insert:    346ms
+half removal:       71ms
+second insert:     113ms
+random access:     950ms
+sequential access:  21ms
+destruction:       166ms
+
+SHARED_PTR WITHOUT MEMORY POOL
+initial insert:    165ms
+half removal:       56ms
+second insert:      86ms
+random access:     1051ms
+sequential access:  35ms
+destruction:       116ms
 ```
 
 ## Contribution
 I'm still a C++ baby so if you have some ideas for improvement, please feel free to make an issue or a PR!
 
 ### Todo
-- [ ] Support for non-smart pointer alloc
+- [x] Support for non-smart pointer alloc
 - [ ] `std::unique_ptr` support
-- [ ] Benchmarks (with both insert after and insert before)
+- [x] Benchmarks (with both insert after and insert before)
 - [ ] More complex example
-- [ ] Alignment?
+- [x] Block alignment
 - [ ] Explanation of how it works
