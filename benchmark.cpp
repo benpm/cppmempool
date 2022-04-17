@@ -206,7 +206,7 @@ void testMem() {
         {// Random removal
             t = clock.now();
             for (size_t i = 0; i < N/2; i++) {
-                free(list[i]);
+                delete list[i];
                 list[i] = nullptr;
             }
             std::cout << "half removal: " << std::chrono::duration_cast<std::chrono::milliseconds>(clock.now() - t).count() << "ms" << std::endl;
@@ -239,7 +239,7 @@ void testMem() {
         // Destruction
         t = clock.now();
         for (size_t i = 0; i < N; i++) {
-            free(list[i]);
+            delete list[i];
         }
     }
     std::cout << "destruction: " << std::chrono::duration_cast<std::chrono::milliseconds>(clock.now() - t).count() << "ms" << std::endl;

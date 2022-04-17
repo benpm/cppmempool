@@ -9,7 +9,7 @@
 #include <memory>
 #include <mutex>
 
-// #define MEMPOOL_THREADSAFE
+#define MEMPOOL_THREADSAFE
 // #define MEMPOOL_EMPTY_INSERT_AFTER
 
 namespace benpm {
@@ -53,9 +53,12 @@ class MemPool {
     }
   };
 
-  Chunk* curChunk = nullptr;    // Non-full chunk which is currently being used
+  // Non-full chunk which is currently being used
+  Chunk* curChunk = nullptr;
+  // Map from block index to block pointer
   std::unordered_map<size_t, Chunk*> blocks;
-  std::mutex mutex;
+  // Mutex for thread safety
+  mutable std::mutex mutex;
 
   // Bound, called for a particular chunk and object when shared_ptr ref count
   // hits 0
@@ -85,7 +88,7 @@ class MemPool {
 
   // Allocates a new block of chunks
   void allocBlock() {
-    Chunk* block = static_cast<Chunk*>(aligned_alloc(blockSize, blockSize));
+    Chunk* block = (Chunk*)(aligned_alloc(blockSize, blockSize));
     assert((size_t)(char*)block % blockSize == 0);
     Chunk* c = block;
     for (size_t i = 0; i < chunksPerBlock - 1; c = c->next, i++) {
@@ -96,7 +99,8 @@ class MemPool {
       this->curChunk->next = block;
     }
     this->curChunk = block;
-    blocks.emplace((size_t)(char*)block / blockSize, block);
+    assert(blocks.count(getBlockIdx(block)) == 0);
+    blocks.emplace(getBlockIdx(block), block);
   }
 
   // Returns the block index of a memory address
@@ -119,8 +123,11 @@ class MemPool {
   MemPool() { allocBlock(); }
 
   ~MemPool() {
+    #ifdef MEMPOOL_THREADSAFE
+      std::lock_guard<std::mutex> lock(mutex);
+    #endif
     for (auto it : blocks) {
-      free(it.second);
+      std::free(it.second);
     }
     this->curChunk = nullptr;
   }
@@ -142,7 +149,7 @@ class MemPool {
     #endif
     if (this->curChunk->head - (char*)this->curChunk + sizeof(T) >= chunkSize) {
       if (this->curChunk->next == nullptr) {
-        allocBlock();
+        this->allocBlock();
       } else {
         this->curChunk = this->curChunk->next;
       }
@@ -183,13 +190,31 @@ class MemPool {
    */
   template <class T>
   void free(T* obj) {
-    assert(this->contains(obj));
-    const size_t blockIdx = this->getBlockIdx((void*)obj);
-    assert(blocks.count(blockIdx));
-    Chunk* block = blocks.at(blockIdx);
-    const size_t chunkIdx = ((size_t)((char*)obj - (char*)block) / chunkSize);
-    Chunk* chunk = (Chunk*)(((char*)block) + chunkIdx * chunkSize);
+    Chunk* chunk;
+    {
+      #ifdef MEMPOOL_THREADSAFE
+        std::lock_guard<std::mutex> lock(mutex);
+      #endif
+      assert(this->contains(obj));
+      const size_t blockIdx = this->getBlockIdx((void*)obj);
+      assert(blocks.count(blockIdx));
+      Chunk* block = blocks.at(blockIdx);
+      const size_t chunkIdx = ((size_t)((char*)obj - (char*)block) / chunkSize);
+      chunk = (Chunk*)(((char*)block) + chunkIdx * chunkSize);
+    }
     this->destructHandler<T>(chunk, obj);
+  }
+
+  /**
+   * @brief Returns the number of blocks allocated
+   * 
+   * @return size_t
+   */
+  size_t getNumBlocks() const {
+    #ifdef MEMPOOL_THREADSAFE
+      std::lock_guard<std::mutex> lock(mutex);
+    #endif
+    return this->blocks.size();
   }
 };
 }  // namespace benpm
