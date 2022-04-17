@@ -6,6 +6,7 @@ A *very* simple (only ~150 lines) C++ thread safe heterogenous header-only memor
 - Basic thread safety using `std::mutex`
 - Support for directly creating smart pointers (that's actually all it can do rn... working on it)
 - No dependencies! Not that that's surprising
+- Configured through template arguments
 
 ## Limitations
 With the implementation being this simple, there are definitely some **significant tradeoffs**:
@@ -50,20 +51,20 @@ todo
 ## Benchmark
 (This is a work in progress)
 
-| `N = 10000000`                 | pool  | no pool |
-|--------------------------------|-------|---------|
-| (raw) initial insert           | 155ms | 199ms   |
-| (raw) half removal             | 58ms  | 34ms    |
-| (raw) second insert            | 78ms  | 100ms   |
-| (raw) random access            | 899ms | 847ms   |
-| (raw) sequential access        | 19ms  | 28ms    |
-| (raw) destruction              | 111ms | 103ms   |
-| (shared_ptr) initial insert    | 346ms | 165ms   |
-| (shared_ptr) half removal      | 71ms  | 56ms    |
-| (shared_ptr) second insert     | 113ms | 86ms    |
-| (shared_ptr) random access     | 950ms | 1051ms  |
-| (shared_ptr) sequential access | 21ms  | 35ms    |
-| (shared_ptr) destruction       | 166ms | 116ms   |
+| operation                    | time (pool) | time (no pool) |
+| ---------------------------- | ----------- | -------------- |
+| (raw) init insert            |       176ms |          190ms |
+| (raw) random removal         |        51ms |           36ms |
+| (raw) second insert          |        75ms |           78ms |
+| (raw) random access          |       817ms |          898ms |
+| (raw) sequential access      |        18ms |           22ms |
+| (raw) destruction            |       101ms |           72ms |
+| (shared) init insert         |       413ms |          251ms |
+| (shared) random removal      |        55ms |           55ms |
+| (shared) second insert       |       129ms |          108ms |
+| (shared) random access       |       974ms |          930ms |
+| (shared) sequential access   |        19ms |           33ms |
+| (shared) destruction         |       213ms |          120ms |
 
 ## Contribution
 I'm still a C++ baby so if you have some ideas for improvement, please feel free to make an issue or a PR!
