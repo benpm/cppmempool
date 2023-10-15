@@ -49,22 +49,22 @@ Check out benchmark.cpp for more
 todo
 
 ## Benchmark
-(This is a work in progress)
+N = 50,000,000
 
 | operation                    | time (pool) | time (no pool) |
 | ---------------------------- | ----------- | -------------- |
-| (raw) init insert            |       176ms |          190ms |
-| (raw) random removal         |        51ms |           36ms |
-| (raw) second insert          |        75ms |           78ms |
-| (raw) random access          |       817ms |          898ms |
-| (raw) sequential access      |        18ms |           22ms |
-| (raw) destruction            |       101ms |           72ms |
-| (shared) init insert         |       413ms |          251ms |
-| (shared) random removal      |        55ms |           55ms |
-| (shared) second insert       |       129ms |          108ms |
-| (shared) random access       |       974ms |          930ms |
-| (shared) sequential access   |        19ms |           33ms |
-| (shared) destruction         |       213ms |          120ms |
+| (raw) init insert            |       730ms |         1373ms |
+| (raw) random removal         |       267ms |          188ms |
+| (raw) second insert          |       392ms |          481ms |
+| (raw) random access          |      4943ms |         5102ms |
+| (raw) sequential access      |       852ms |          943ms |
+| (raw) destruction            |       512ms |          380ms |
+| (shared) init insert         |      1822ms |          855ms |
+| (shared) random removal      |       287ms |          290ms |
+| (shared) second insert       |       558ms |          435ms |
+| (shared) random access       |      5062ms |         5014ms |
+| (shared) sequential access   |       931ms |         1409ms |
+| (shared) destruction         |      1079ms |          591ms |
 
 ## Contribution
 I'm still a C++ baby so if you have some ideas for improvement, please feel free to make an issue or a PR!

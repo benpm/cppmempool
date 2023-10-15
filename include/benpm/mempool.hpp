@@ -106,7 +106,7 @@ namespace benpm {
     }
 
     // Returns the block index of a memory address
-    size_t getBlockIdx(void* ptr) const {
+    inline size_t getBlockIdx(void* ptr) const {
       return (size_t)(char*)ptr / blockSize;
     }
 
