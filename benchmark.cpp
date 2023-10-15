@@ -258,19 +258,22 @@ Times testMem() {
 
 Times testRawHeap() {
   auto [gen, times, label] = setup("testRawHeap");
+  std::vector<Item *> list(N);
 
   {  // Bench memory pool
     FlatHeap<Item> flatHeap;
     // Initial insertion
     for (size_t i = 0; i < N; i++) {
-      flatHeap.emplace("object", i);
+      list[i] = flatHeap.emplace("object", i);
     }
     times[0] = clock();
 
     // Random removal
     for (size_t i = 0; i < N / 2; i++) {
-      if (flatHeap.contains(i)) {
-        flatHeap.erase(flatHeap.begin() + gen());
+      const size_t j = gen();
+      if (list[j] != nullptr) {
+        flatHeap.erase(list[j]);
+        list[j] = nullptr;
       }
     }
     times[1] = clock();
@@ -278,21 +281,21 @@ Times testRawHeap() {
     // Insertion
     for (size_t i = 0; i < N; i++) {
       if (!flatHeap.contains(i)) {
-        flatHeap.emplace("object", gen());
+        list[i] = flatHeap.emplace("object", gen());
       }
     }
     times[2] = clock();
 
     // Random access: randomly assign new values to object fields
     for (size_t i = 0; i < N; i++) {
-      flatHeap.get(gen())->val = i;
+      list[gen()]->val = i;
     }
     times[3] = clock();
 
     // Sequential access: access object fields sequentially, summing all values
     size_t sum = 0;
     for (size_t i = 0; i < N * 8; i++) {
-      sum += flatHeap.get(i % N)->val;
+      sum += list[i % N]->val;
     }
     checkSum(label, sum);
     times[4] = clock();
