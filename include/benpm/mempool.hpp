@@ -5,7 +5,6 @@
 
 #include <unordered_map>
 #include <functional>
-#include <list>
 #include <memory>
 #include <mutex>
 
@@ -23,6 +22,7 @@ namespace benpm {
   class MemPool {
   private:  // ------------------------------------------------------------
     static constexpr size_t blockSize = chunkSize * chunksPerBlock;
+    static constexpr size_t blockSizeLog2 = __builtin_ctzl(blockSize);
 
     struct Chunk {
       char* head;   // Next free byte in chunk
@@ -107,7 +107,7 @@ namespace benpm {
 
     // Returns the block index of a memory address
     size_t getBlockIdx(void* ptr) const {
-      return (size_t)(char*)ptr / blockSize;
+      return (size_t)(char*)ptr >> blockSizeLog2;
     }
 
     // Returns true if given memory address resides in this pool
@@ -149,7 +149,7 @@ namespace benpm {
       #ifdef MEMPOOL_THREADSAFE
         std::lock_guard<std::mutex> lock(mutex);
       #endif
-      if (this->curChunk->head - (char*)this->curChunk + sizeof(T) >= chunkSize) {
+      if (this->curChunk->used + sizeof(T) > chunkSize) {
         if (this->curChunk->next == nullptr) {
           this->allocBlock();
         } else {
@@ -174,7 +174,7 @@ namespace benpm {
       #ifdef MEMPOOL_THREADSAFE
         std::lock_guard<std::mutex> lock(mutex);
       #endif
-      if (this->curChunk->head - (char*)this->curChunk + sizeof(T) >= chunkSize) {
+      if (this->curChunk->used + sizeof(T) > chunkSize) {
         if (this->curChunk->next == nullptr) {
           this->allocBlock();
         } else {
